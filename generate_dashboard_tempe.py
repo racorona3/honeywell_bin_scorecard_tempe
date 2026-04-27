@@ -379,8 +379,8 @@ def build_html(d):
       <div class="stat-val">{d['total']}</div>
       <div class="stat-label">Managed Locations</div>
       <div class="stat-sub">
-        <span class="pill pill-green">{d['active']:,} Active</span>&nbsp;
-        <span class="pill pill-red">{d['inactive']:,} Inactive</span>
+        <span class="pill pill-green">{d['active']} Active</span>&nbsp;
+        <span class="pill pill-red">{d['inactive']} Inactive</span>
       </div>
     </div>
 
