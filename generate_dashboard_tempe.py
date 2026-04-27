@@ -1,8 +1,9 @@
 """
-Honeywell Binstock Program Scorecard — Dashboard Generator (Tempe Site)
------------------------------------------------------------------------
+Honeywell Binstock Program Scorecard — Dashboard Generator
+Honeywell Tempe Site
+-----------------------------------------------------------
 Run:    python generate_dashboard_tempe.py
-Output: index.html  (saved to the same folder as the xlsx)
+Output: index.html saved to the Honeywell Tempe folder — ready for GitHub Pages
 
 Requirements:
     pip install pandas openpyxl
@@ -12,545 +13,451 @@ import pandas as pd
 import os
 from datetime import datetime
 
-# ── CONFIG ───────────────────────────────────────────────────────────────────
-XLSX_PATH  = r"C:\Users\zn424f\OneDrive - The Boeing Company\Working KPIs\Bin Stratifications\Honeywell Tempe\Honeywell Tempe_042026_binstrat.xlsx"
-SHEET_NAME = "Bin Map Rpt_Tempe"
-OUTPUT_FILE = "index.html"
-# ─────────────────────────────────────────────────────────────────────────────
+# ── CONFIG — only these 4 lines change per site ─────────────────────────────
+XLSX_PATH   = r"C:\Users\zn424f\OneDrive - The Boeing Company\Working KPIs\Bin Stratifications\Honeywell Tempe\Honeywell Tempe_042026_binstrat.xlsx"
+SHEET_NAME  = "Bin Map Rpt_Tempe"
+OUTPUT_DIR  = r"C:\Users\zn424f\OneDrive - The Boeing Company\Working KPIs\Bin Stratifications\Honeywell Tempe"
+SITE_NAME   = "HONEYWELL TEMPE"
+# ────────────────────────────────────────────────────────────────────────────
 
 
 def load_and_calculate(path, sheet):
     df = pd.read_excel(path, sheet_name=sheet)
 
     total    = len(df)
-    active   = len(df[df["Bin Activity Status"] == "Active"])
-    inactive = len(df[df["Bin Activity Status"] == "Inactive"])
+    active   = len(df[df['Bin Activity Status'] == 'Active'])
+    inactive = len(df[df['Bin Activity Status'] == 'Inactive'])
 
-    stockout_total  = len(df[df["Stockout Status"] == "STOCKOUT"])
-    stockout_active = len(df[(df["Stockout Status"] == "STOCKOUT") & (df["Bin Activity Status"] == "Active")])
+    stockout_total  = len(df[df['Stockout Status'] == 'STOCKOUT'])
+    stockout_active = len(df[(df['Stockout Status'] == 'STOCKOUT') & (df['Bin Activity Status'] == 'Active')])
 
-    fill_total  = round((total  - stockout_total)  / total  * 100, 2) if total  else 0
-    fill_active = round((active - stockout_active) / active * 100, 2) if active else 0
+    fill_total  = round((total  - stockout_total)  / total  * 100, 2)
+    fill_active = round((active - stockout_active) / active * 100, 2)
 
-    past_due_total  = len(df[df["Past Due?"] == "Yes"])
-    past_due_active = len(df[(df["Past Due?"] == "Yes") & (df["Bin Activity Status"] == "Active")])
+    past_due_total  = len(df[df['Past Due?'] == 'Yes'])
+    past_due_active = len(df[(df['Past Due?'] == 'Yes') & (df['Bin Activity Status'] == 'Active')])
+    pd_pct_total    = round(past_due_total  / total  * 100, 2)
+    pd_pct_active   = round(past_due_active / active * 100, 2)
+    pd_risk_delta   = round((pd_pct_active - pd_pct_total) / pd_pct_total * 100, 0) if pd_pct_total else 0
 
-    pd_pct_total  = round(past_due_total  / total  * 100, 2) if total  else 0
-    pd_pct_active = round(past_due_active / active * 100, 2) if active else 0
+    on_priced    = len(df[df['Contract Status'] == 'On-Contract : Priced'])
+    off_contract = len(df[df['Contract Status'] == 'Off-Contract'])
+    unpriced     = len(df[df['Contract Status'] == 'On-Contract : Unpriced'])
+    growth       = len(df[df['Contract Status'] == 'On-Contract : Growth Agreement'])
 
-    on_contract  = len(df[df["Contract Status"] == "On-Contract Priced"])
-    off_contract = len(df[df["Contract Status"] == "Off-Contract"])
-    unpriced     = len(df[df["Contract Status"] == "Unpriced"])
+    df_active            = df[df['Bin Activity Status'] == 'Active']
+    on_priced_active     = len(df_active[df_active['Contract Status'] == 'On-Contract : Priced'])
+    off_contract_active  = len(df_active[df_active['Contract Status'] == 'Off-Contract'])
+    unpriced_active      = len(df_active[df_active['Contract Status'] == 'On-Contract : Unpriced'])
+    growth_active        = len(df_active[df_active['Contract Status'] == 'On-Contract : Growth Agreement'])
 
-    on_contract_pct  = round(on_contract  / total * 100, 2) if total else 0
-    off_contract_pct = round(off_contract / total * 100, 2) if total else 0
-    unpriced_pct     = round(unpriced     / total * 100, 2) if total else 0
+    on_contract_pct         = round(on_priced           / total  * 100, 1)
+    off_contract_pct        = round(off_contract        / total  * 100, 2)
+    unpriced_pct            = round(unpriced            / total  * 100, 2)
+    growth_pct              = round(growth              / total  * 100, 2)
+    on_contract_active_pct  = round(on_priced_active    / active * 100, 1)
+    off_contract_active_pct = round(off_contract_active / active * 100, 2)
+    unpriced_active_pct     = round(unpriced_active     / active * 100, 2)
+    growth_active_pct       = round(growth_active       / active * 100, 2)
 
-    active_pct   = round(active   / total * 100, 2) if total else 0
-    inactive_pct = round(inactive / total * 100, 2) if total else 0
+    flag_delete = len(df[df['Action'] == 'DELETE'])
+    flag_review = len(df[df['Action'] == 'Move to PO/BOM Review Required'])
 
-    stockout_pct_active = round(stockout_active / active * 100, 2) if active else 0
+    active_pct   = round(active   / total * 100, 1)
+    inactive_pct = round(inactive / total * 100, 1)
 
-    return {
-        "report_date"        : datetime.now().strftime("%B %d, %Y"),
-        "file_name"          : os.path.basename(path),
-        "total"              : f"{total:,}",
-        "active"             : f"{active:,}",
-        "inactive"           : f"{inactive:,}",
-        "active_pct"         : active_pct,
-        "inactive_pct"       : inactive_pct,
-        "fill_total"         : fill_total,
-        "fill_active"        : fill_active,
-        "stockout_total"     : stockout_total,
-        "stockout_active"    : stockout_active,
-        "stockout_pct_active": stockout_pct_active,
-        "past_due_total"     : past_due_total,
-        "past_due_active"    : past_due_active,
-        "pd_pct_total"       : pd_pct_total,
-        "pd_pct_active"      : pd_pct_active,
-        "on_contract"        : on_contract,
-        "off_contract"       : off_contract,
-        "unpriced"           : unpriced,
-        "on_contract_pct"    : on_contract_pct,
-        "off_contract_pct"   : off_contract_pct,
-        "unpriced_pct"       : unpriced_pct,
-    }
+    stockout_pct_total  = round(stockout_total  / total  * 100, 2)
+    stockout_pct_active = round(stockout_active / active * 100, 2)
+    stocked_total       = total  - stockout_total
+    stocked_active      = active - stockout_active
+
+    C = 263.9
+    def dash(pct):   return f"{round(C * pct / 100, 1)} {round(C - C * pct / 100, 1)}"
+    def offset(pct): return f"-{round(C * pct / 100, 1)}"
+
+    return dict(
+        total=f"{total:,}", active=f"{active:,}", inactive=f"{inactive:,}",
+        active_pct=active_pct, inactive_pct=inactive_pct,
+        stockout_total=stockout_total, stockout_active=stockout_active,
+        stockout_pct_total=stockout_pct_total, stockout_pct_active=stockout_pct_active,
+        stocked_total=f"{stocked_total:,}", stocked_active=f"{stocked_active:,}",
+        fill_total=fill_total, fill_active=fill_active,
+        past_due_total=past_due_total, past_due_active=past_due_active,
+        pd_pct_total=pd_pct_total, pd_pct_active=pd_pct_active,
+        pd_risk_delta=int(pd_risk_delta),
+        on_priced=f"{on_priced:,}", off_contract=off_contract,
+        unpriced=unpriced, growth=growth,
+        on_contract_pct=on_contract_pct, off_contract_pct=off_contract_pct,
+        unpriced_pct=unpriced_pct, growth_pct=growth_pct,
+        on_priced_active=f"{on_priced_active:,}", off_contract_active=off_contract_active,
+        unpriced_active=unpriced_active, growth_active=growth_active,
+        on_contract_active_pct=on_contract_active_pct,
+        off_contract_active_pct=off_contract_active_pct,
+        unpriced_active_pct=unpriced_active_pct,
+        growth_active_pct=growth_active_pct,
+        flag_delete=f"{flag_delete:,}", flag_review=f"{flag_review:,}",
+        arc_priced_total=dash(on_contract_pct),
+        arc_off_total=dash(off_contract_pct),
+        off_offset_total=offset(on_contract_pct),
+        arc_unpriced_total=dash(unpriced_pct),
+        unpriced_offset_total=offset(on_contract_pct + off_contract_pct),
+        arc_growth_total=dash(growth_pct),
+        growth_offset_total=offset(on_contract_pct + off_contract_pct + unpriced_pct),
+        arc_priced_active=dash(on_contract_active_pct),
+        arc_off_active=dash(off_contract_active_pct),
+        off_offset_active=offset(on_contract_active_pct),
+        arc_unpriced_active=dash(unpriced_active_pct),
+        unpriced_offset_active=offset(on_contract_active_pct + off_contract_active_pct),
+        arc_growth_active=dash(growth_active_pct),
+        growth_offset_active=offset(on_contract_active_pct + off_contract_active_pct + unpriced_active_pct),
+        report_date=datetime.now().strftime("%B %Y"),
+        file_name=os.path.basename(path),
+    )
 
 
-def donut_path(pct, r=52, cx=64, cy=64):
-    """Return SVG arc path and dasharray for a donut segment."""
-    circ = 2 * 3.14159 * r
-    filled = circ * (pct / 100)
-    return f"{filled:.2f} {circ - filled:.2f}"
-
-
-def build_html(d):
-    fill_total_arc  = donut_path(d["fill_total"])
-    fill_active_arc = donut_path(d["fill_active"])
-
+def build_html(d, site_name):
     return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Honeywell Binstock Program Scorecard — Tempe</title>
-<link rel="preconnect" href="https://fonts.googleapis.com"/>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=Syne:wght@700;800&display=swap" rel="stylesheet"/>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Honeywell Binstock Program Scorecard</title>
 <style>
-  /* ── TOKENS ─────────────────────────────── */
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Syne:wght@400;600;700;800&display=swap');
+
   :root {{
-    --bg         : #f5f6f8;
-    --surface    : #ffffff;
-    --border     : #d4d8de;
-    --text       : #1a1d23;
-    --subtext    : #4a5060;
-    --muted      : #6b7280;
-    --accent     : #1d4ed8;
-    --accent-lt  : #dbeafe;
-    --green      : #15803d;
-    --green-lt   : #dcfce7;
-    --red        : #b91c1c;
-    --red-lt     : #fee2e2;
-    --yellow     : #92400e;
-    --yellow-lt  : #fef3c7;
-    --radius     : 12px;
-    --shadow     : 0 1px 4px rgba(0,0,0,.08);
+    --bg:      #eef1f6;
+    --surface: #ffffff;
+    --border:  #c8d1de;
+    --accent:  #025f99;
+    --green:   #15803d;
+    --yellow:  #b45309;
+    --red:     #b91c1c;
+    --purple:  #6d28d9;
+    --teal:    #0e7490;
+    --muted:   #374151;
+    --text:    #0f172a;
+    --subtext: #1e293b;
   }}
 
-  /* ── RESET ───────────────────────────────── */
-  *, *::before, *::after {{ box-sizing: border-box; margin: 0; padding: 0; }}
-  body {{
-    font-family: 'Inter', system-ui, sans-serif;
-    font-size: 14px;
-    font-weight: 600;
-    background: var(--bg);
-    color: var(--text);
-    min-height: 100vh;
-    padding: 24px 20px 40px;
-  }}
+  * {{ box-sizing: border-box; margin: 0; padding: 0; }}
+  body {{ background: var(--bg); color: var(--text); font-family: 'Inter', sans-serif; font-weight: 600; min-height: 100vh; padding: 0; overflow-x: hidden; }}
 
-  /* ── LAYOUT ──────────────────────────────── */
-  .page       {{ max-width: 1100px; margin: 0 auto; }}
-  .grid-2     {{ display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }}
-  .grid-3     {{ display: grid; grid-template-columns: repeat(3,1fr); gap: 16px; }}
-  .grid-4     {{ display: grid; grid-template-columns: repeat(4,1fr); gap: 16px; }}
-  .col-span-2 {{ grid-column: span 2; }}
-  .col-span-3 {{ grid-column: span 3; }}
-  .col-span-4 {{ grid-column: span 4; }}
-  .mt16       {{ margin-top: 16px; }}
+  .header {{ background: linear-gradient(135deg, #f0f4f8 0%, #e1eaf5 100%); border-bottom: 1px solid var(--border); padding: 28px 40px 24px; display: flex; justify-content: space-between; align-items: flex-end; position: relative; overflow: hidden; }}
+  .header::before {{ content: ''; position: absolute; top: -60px; right: -60px; width: 260px; height: 260px; background: radial-gradient(circle, rgba(3,105,161,0.07) 0%, transparent 70%); pointer-events: none; }}
+  .header-left h1 {{ font-family: 'Syne', sans-serif; font-size: 22px; font-weight: 800; letter-spacing: 0.04em; color: var(--accent); text-transform: uppercase; }}
+  .header-left p {{ font-size: 13px; font-weight: 500; color: var(--muted); letter-spacing: 0.03em; margin-top: 4px; }}
+  .header-right {{ text-align: right; font-size: 12px; font-weight: 500; color: var(--muted); letter-spacing: 0.02em; line-height: 1.7; }}
+  .header-right .site-tag {{ font-family: 'Syne', sans-serif; font-weight: 700; font-size: 13px; color: var(--accent); letter-spacing: 0.06em; }}
 
-  /* ── CARD ────────────────────────────────── */
-  .card {{
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    box-shadow: var(--shadow);
-    padding: 20px;
-  }}
-  .card-title {{
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: .06em;
-    text-transform: uppercase;
-    color: var(--muted);
-    margin-bottom: 14px;
-  }}
+  .def-banner {{ background: rgba(2,95,153,0.05); border-bottom: 1px solid var(--border); padding: 11px 40px; display: flex; gap: 32px; font-size: 12px; font-weight: 500; color: var(--muted); letter-spacing: 0.01em; }}
+  .def-banner span {{ color: var(--subtext); }}
+  .def-pill {{ display: inline-block; padding: 2px 9px; border-radius: 3px; font-size: 12px; font-weight: 700; margin-right: 6px; }}
+  .pill-active  {{ background: rgba(22,163,74,0.10);  color: var(--green); border: 1px solid rgba(22,163,74,0.3); }}
+  .pill-inactive{{ background: rgba(107,114,128,0.10); color: var(--muted); border: 1px solid rgba(107,114,128,0.3); }}
 
-  /* ── HEADER ──────────────────────────────── */
-  .header {{
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 24px;
-    padding: 18px 24px;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    box-shadow: var(--shadow);
-  }}
-  .header-left h1 {{
-    font-family: 'Syne', sans-serif;
-    font-weight: 800;
-    font-size: 22px;
-    color: var(--text);
-    letter-spacing: -.02em;
-  }}
-  .header-left .sub {{
-    font-size: 12px;
-    font-weight: 600;
-    color: var(--subtext);
-    margin-top: 3px;
-  }}
-  .header-right {{
-    text-align: right;
-    font-size: 12px;
-    font-weight: 600;
-    color: var(--subtext);
-    line-height: 1.6;
-  }}
-  .site-badge {{
-    display: inline-block;
-    background: var(--accent-lt);
-    color: var(--accent);
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: .05em;
-    text-transform: uppercase;
-    padding: 2px 10px;
-    border-radius: 20px;
-    margin-top: 6px;
-  }}
+  .dashboard {{ padding: 32px 40px; display: flex; flex-direction: column; gap: 28px; }}
+  .row {{ display: grid; gap: 20px; }}
+  .row-4 {{ grid-template-columns: repeat(4, 1fr); }}
+  .row-3 {{ grid-template-columns: repeat(3, 1fr); }}
+  .row-2 {{ grid-template-columns: repeat(2, 1fr); }}
 
-  /* ── KPI STAT ────────────────────────────── */
-  .stat-val {{
-    font-family: 'Syne', sans-serif;
-    font-size: 32px;
-    font-weight: 800;
-    color: var(--text);
-    line-height: 1;
-  }}
-  .stat-label {{
-    font-size: 12px;
-    font-weight: 700;
-    color: var(--subtext);
-    margin-top: 4px;
-  }}
-  .stat-sub {{
-    font-size: 12px;
-    font-weight: 600;
-    color: var(--muted);
-    margin-top: 6px;
-  }}
+  .card {{ background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 20px 22px; position: relative; overflow: hidden; transition: border-color 0.2s; }}
+  .card:hover {{ border-color: #b0bfd4; }}
+  .card-accent-top {{ position: absolute; top: 0; left: 0; right: 0; height: 2px; }}
+  .card-label {{ font-size: 13px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); margin-bottom: 10px; }}
+  .card-value {{ font-family: 'Syne', sans-serif; font-size: 36px; font-weight: 800; line-height: 1; letter-spacing: -0.02em; }}
+  .card-sub {{ font-size: 13px; font-weight: 600; color: var(--muted); margin-top: 6px; }}
+  .card-sub strong {{ color: var(--subtext); font-weight: 700; }}
 
-  /* ── DONUT ───────────────────────────────── */
-  .donut-wrap {{
-    display: flex;
-    align-items: center;
-    gap: 20px;
-  }}
-  .donut-svg {{ flex-shrink: 0; }}
-  .donut-track  {{ fill: none; stroke: #e5e7eb; stroke-width: 10; }}
-  .donut-fill   {{ fill: none; stroke-width: 10; stroke-linecap: round;
-                   stroke-dashoffset: 0; transform-origin: center;
-                   transform: rotate(-90deg); transition: stroke-dasharray .8s ease; }}
-  .donut-green  {{ stroke: #16a34a; }}
-  .donut-blue   {{ stroke: #2563eb; }}
-  .donut-center {{ font-family: 'Syne', sans-serif; font-size: 17px; font-weight: 800;
-                   fill: var(--accent); text-anchor: middle; dominant-baseline: middle; }}
-  .donut-legend {{ flex: 1; }}
-  .donut-legend .lg-row {{ display: flex; justify-content: space-between;
-                            align-items: center; margin-bottom: 8px; }}
-  .donut-legend .lg-label {{ font-size: 12px; font-weight: 700; color: var(--subtext); }}
-  .donut-legend .lg-val   {{ font-family: 'Syne', sans-serif; font-size: 15px;
-                              font-weight: 800; color: var(--text); }}
+  .section-header {{ display: flex; align-items: center; gap: 12px; margin-bottom: 4px; }}
+  .section-title {{ font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--subtext); }}
+  .section-line {{ flex: 1; height: 1px; background: var(--border); }}
 
-  /* ── FILL BAR ────────────────────────────── */
-  .fill-bar {{ margin-top: 14px; }}
-  .fill-bar-label {{
-    display: flex;
-    justify-content: space-between;
-    font-size: 12px;
-    font-weight: 700;
-    color: var(--subtext);
-    margin-bottom: 5px;
-  }}
-  .fill-bar-track {{
-    background: #e5e7eb;
-    border-radius: 99px;
-    height: 8px;
-    overflow: hidden;
-  }}
-  .fill-bar-fill {{
-    height: 100%;
-    border-radius: 99px;
-    transition: width 1s ease;
-  }}
-  .bar-green {{ background: #16a34a; }}
-  .bar-blue  {{ background: #2563eb; }}
+  .fill-bar-track {{ height: 6px; background: rgba(0,0,0,0.08); border-radius: 3px; overflow: hidden; margin-top: 4px; }}
+  .fill-bar-fill {{ height: 100%; background: linear-gradient(90deg, var(--green), #4ade80); border-radius: 3px; transition: width 1.2s cubic-bezier(0.4,0,0.2,1); }}
 
-  /* ── ACTIVITY DOT MATRIX ─────────────────── */
-  #activityDots {{
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px;
-    margin-top: 10px;
-  }}
-  .dot-bin {{
-    width: 10px;
-    height: 10px;
-    border-radius: 3px;
-    flex-shrink: 0;
-  }}
-  .dot-active   {{ background: #16a34a; }}
-  .dot-inactive {{ background: #e5e7eb; }}
-  .dot-legend {{
-    display: flex;
-    gap: 16px;
-    margin-top: 10px;
-    font-size: 12px;
-    font-weight: 700;
-    color: var(--subtext);
-    align-items: center;
-  }}
-  .dot-legend span {{ display: flex; align-items: center; gap: 5px; }}
-  .dot-legend i {{
-    display: inline-block;
-    width: 10px; height: 10px;
-    border-radius: 3px;
-  }}
+  .lens-card {{ background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 20px 22px; position: relative; overflow: hidden; }}
+  .lens-tag {{ display: inline-block; font-size: 12px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; padding: 4px 11px; border-radius: 3px; margin-bottom: 12px; }}
+  .lens-total  {{ background: rgba(109,40,217,0.08); color: var(--purple); border: 1px solid rgba(109,40,217,0.25); }}
+  .lens-active {{ background: rgba(21,128,61,0.08);  color: var(--green);  border: 1px solid rgba(21,128,61,0.25); }}
+  .lens-metrics {{ display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }}
+  .lens-metric-label {{ font-size: 12px; font-weight: 700; color: var(--muted); letter-spacing: 0.05em; text-transform: uppercase; margin-bottom: 4px; }}
+  .lens-metric-value {{ font-family: 'Syne', sans-serif; font-size: 28px; font-weight: 700; line-height: 1; }}
+  .lens-metric-count {{ font-size: 13px; font-weight: 600; color: var(--muted); margin-top: 2px; }}
 
-  /* ── RISK PANEL ──────────────────────────── */
-  .risk-row {{
-    display: grid;
-    grid-template-columns: 170px 1fr 52px 80px;
-    align-items: center;
-    gap: 10px;
-    margin-bottom: 10px;
-  }}
-  .risk-label {{ font-size: 12px; font-weight: 700; color: var(--subtext); }}
-  .risk-bar-wrap {{ display: flex; align-items: center; }}
-  .risk-bar-bg {{
-    flex: 1;
-    background: #e5e7eb;
-    border-radius: 99px;
-    height: 7px;
-    overflow: hidden;
-  }}
-  .risk-bar-inner {{ height: 100%; border-radius: 99px; }}
-  .bg-red    {{ background: #dc2626; }}
-  .bg-yellow {{ background: #d97706; }}
-  .bg-green  {{ background: #16a34a; }}
-  .risk-value {{ font-family: 'Syne', sans-serif; font-size: 14px; font-weight: 800; text-align: right; }}
-  .risk-count {{ font-size: 12px; font-weight: 600; text-align: right; }}
-  .c-red    {{ color: var(--red); }}
-  .c-yellow {{ color: var(--yellow); }}
-  .c-green  {{ color: var(--green); }}
-  .c-muted  {{ color: var(--muted); }}
+  .risk-row {{ display: flex; align-items: center; gap: 12px; padding: 8px 0; border-bottom: 1px solid rgba(0,0,0,0.07); }}
+  .risk-row:last-child {{ border-bottom: none; }}
+  .risk-label {{ font-size: 13px; font-weight: 600; color: var(--subtext); flex: 1; }}
+  .risk-bar-wrap {{ width: 120px; }}
+  .risk-bar-bg {{ height: 6px; background: rgba(0,0,0,0.08); border-radius: 3px; overflow: hidden; }}
+  .risk-bar-inner {{ height: 100%; border-radius: 3px; }}
+  .risk-value {{ font-family: 'Syne', sans-serif; font-size: 15px; font-weight: 700; width: 52px; text-align: right; }}
+  .risk-count {{ font-size: 12px; font-weight: 600; color: var(--muted); width: 56px; text-align: right; }}
 
-  /* ── BADGE PILLS ─────────────────────────── */
-  .pill {{
-    display: inline-block;
-    padding: 3px 10px;
-    border-radius: 20px;
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: .03em;
-  }}
-  .pill-green  {{ background: var(--green-lt);  color: var(--green);  }}
-  .pill-red    {{ background: var(--red-lt);    color: var(--red);    }}
-  .pill-yellow {{ background: var(--yellow-lt); color: var(--yellow); }}
-  .pill-blue   {{ background: var(--accent-lt); color: var(--accent); }}
+  .contract-layout {{ display: flex; align-items: center; gap: 24px; }}
+  .donut-wrap {{ position: relative; flex-shrink: 0; }}
+  .donut-center {{ position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); text-align: center; }}
+  .donut-center-val {{ font-family: 'Syne', sans-serif; font-size: 22px; font-weight: 800; line-height: 1; color: var(--accent); }}
+  .donut-center-lbl {{ font-size: 11px; font-weight: 700; color: var(--subtext); letter-spacing: 0.04em; text-transform: uppercase; }}
+  .contract-legend {{ flex: 1; display: flex; flex-direction: column; gap: 10px; }}
+  .legend-row {{ display: flex; align-items: center; gap: 10px; }}
+  .legend-dot {{ width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }}
+  .legend-name {{ font-size: 13px; font-weight: 600; color: var(--subtext); flex: 1; }}
+  .legend-count {{ font-family: 'Syne', sans-serif; font-size: 14px; font-weight: 700; }}
+  .legend-pct {{ font-size: 12px; font-weight: 600; color: var(--muted); margin-left: 4px; }}
 
-  /* ── FOOTER ──────────────────────────────── */
-  .footer {{
-    margin-top: 28px;
-    font-size: 11px;
-    font-weight: 600;
-    color: var(--muted);
-    display: flex;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 6px;
+  .activity-visual {{ display: flex; gap: 3px; flex-wrap: wrap; margin: 12px 0 14px; }}
+  .dot-bin {{ width: 7px; height: 7px; border-radius: 1px; flex-shrink: 0; }}
+  .dot-active  {{ background: var(--green); opacity: 0.75; }}
+  .dot-inactive{{ background: var(--muted); opacity: 0.35; }}
+  .activity-legend {{ display: flex; gap: 20px; }}
+  .act-item {{ display: flex; align-items: center; gap: 8px; }}
+  .act-dot {{ width: 10px; height: 10px; border-radius: 2px; }}
+  .act-label {{ font-size: 13px; font-weight: 600; color: var(--subtext); }}
+  .act-num {{ font-family: 'Syne', sans-serif; font-size: 15px; font-weight: 700; }}
+  .act-pct {{ font-size: 12px; font-weight: 600; color: var(--muted); }}
+
+  .pastdue-split {{ display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 8px; }}
+  .pd-block {{ background: rgba(185,28,28,0.04); border: 1px solid rgba(185,28,28,0.2); border-radius: 6px; padding: 14px 16px; }}
+  .pd-block-label {{ font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }}
+  .pd-block-val {{ font-family: 'Syne', sans-serif; font-size: 32px; font-weight: 800; color: var(--red); line-height: 1; }}
+  .pd-block-sub {{ font-size: 13px; font-weight: 600; color: var(--muted); margin-top: 4px; }}
+
+  .c-green  {{ color: var(--green);  }} .c-red    {{ color: var(--red);    }}
+  .c-yellow {{ color: var(--yellow); }} .c-accent {{ color: var(--accent);  }}
+  .c-purple {{ color: var(--purple); }} .c-muted  {{ color: var(--muted);   }}
+  .c-teal   {{ color: var(--teal);   }}
+  .bg-green  {{ background: var(--green);  }} .bg-red    {{ background: var(--red);    }}
+  .bg-yellow {{ background: var(--yellow); }} .bg-accent {{ background: var(--accent);  }}
+  .bg-muted  {{ background: var(--muted);  }} .bg-teal   {{ background: var(--teal);   }}
+
+  .footer {{ padding: 16px 40px; border-top: 1px solid var(--border); display: flex; justify-content: space-between; font-size: 11px; font-weight: 500; color: var(--muted); letter-spacing: 0.02em; }}
+
+  @media (max-width: 900px) {{
+    .row-4 {{ grid-template-columns: repeat(2, 1fr); }}
+    .row-3 {{ grid-template-columns: 1fr 1fr; }}
+    .dashboard {{ padding: 20px; }}
+    .header {{ padding: 20px; flex-direction: column; align-items: flex-start; gap: 8px; }}
+    .def-banner {{ flex-direction: column; gap: 6px; }}
   }}
 </style>
 </head>
 <body>
 
-<div class="page">
+<div class="header">
+  <div class="header-left">
+    <h1>Honeywell Binstock Program Scorecard</h1>
+    <p>Program Management · {d['report_date']}</p>
+  </div>
+  <div class="header-right">
+    <div class="site-tag">{site_name}</div>
+    <div>BDS Account: Boeing Distribution Services</div>
+    <div>Source: {d['file_name']} · {d['total']} Total Bins</div>
+  </div>
+</div>
 
-  <!-- HEADER -->
-  <div class="header">
-    <div class="header-left">
-      <h1>Honeywell Binstock Program Scorecard</h1>
-      <div class="sub">Boeing Distribution Services · Program Management</div>
-      <div class="site-badge">Tempe Site</div>
-    </div>
-    <div class="header-right">
-      <div>{d['report_date']}</div>
-      <div>{d['file_name']}</div>
+<div class="def-banner">
+  <span><span class="def-pill pill-active">ACTIVE</span><span>Any scans recorded in the last 3 years (2023–2026)</span></span>
+  <span><span class="def-pill pill-inactive">INACTIVE</span><span>Zero scans in the same 3-year window — candidates for deletion/review</span></span>
+  <span style="margin-left:auto;"><span>Stockout = bin flagged STOCKOUT · Past Due = open replenishment obligation past due date</span></span>
+</div>
+
+<div class="dashboard">
+
+  <div>
+    <div class="section-header"><span class="section-title">Site Overview</span><div class="section-line"></div></div>
+    <div style="margin-top:12px;" class="row row-4">
+      <div class="card">
+        <div class="card-accent-top" style="background:var(--accent);"></div>
+        <div class="card-label">Total Bin Map</div>
+        <div class="card-value c-accent">{d['total']}</div>
+        <div class="card-sub">Complete site footprint — all statuses</div>
+      </div>
+      <div class="card">
+        <div class="card-accent-top" style="background:var(--green);"></div>
+        <div class="card-label">Active Bins</div>
+        <div class="card-value c-green">{d['active']}</div>
+        <div class="card-sub"><strong>{d['active_pct']}%</strong> of total map · scanned ≥ 1× in 3 yrs</div>
+      </div>
+      <div class="card">
+        <div class="card-accent-top" style="background:var(--muted);"></div>
+        <div class="card-label">Inactive Bins</div>
+        <div class="card-value" style="color:var(--subtext);">{d['inactive']}</div>
+        <div class="card-sub"><strong>{d['inactive_pct']}%</strong> of total map · zero scans in 3 yrs</div>
+      </div>
+      <div class="card">
+        <div class="card-accent-top" style="background:var(--red);"></div>
+        <div class="card-label">Past Due Bins</div>
+        <div class="card-value c-red">{d['past_due_total']}</div>
+        <div class="card-sub"><strong>{d['pd_pct_total']}%</strong> of total · <strong>{d['past_due_active']}</strong> in active map</div>
+      </div>
     </div>
   </div>
 
-  <!-- ROW 1: KPI STATS -->
-  <div class="grid-4">
-
-    <div class="card">
-      <div class="card-title">Total Bin Map</div>
-      <div class="stat-val">{d['total']}</div>
-      <div class="stat-label">Managed Locations</div>
-      <div class="stat-sub">
-        <span class="pill pill-green">{d['active']} Active</span>&nbsp;
-        <span class="pill pill-red">{d['inactive']} Inactive</span>
+  <div>
+    <div class="section-header"><span class="section-title">Fill Rate &amp; Stockout — Two Lenses</span><div class="section-line"></div></div>
+    <div style="margin-top:12px;" class="row row-2">
+      <div class="lens-card">
+        <div class="lens-tag lens-total">Lens 1 — Complete Bin Map (All {d['total']})</div>
+        <div class="lens-metrics">
+          <div>
+            <div class="lens-metric-label">Fill Rate</div>
+            <div class="lens-metric-value c-green">{d['fill_total']}%</div>
+            <div class="lens-metric-count">{d['stocked_total']} of {d['total']} bins stocked</div>
+            <div class="fill-bar-track" style="margin-top:8px;"><div class="fill-bar-fill" style="width:{d['fill_total']}%;"></div></div>
+          </div>
+          <div>
+            <div class="lens-metric-label">Stockouts</div>
+            <div class="lens-metric-value c-red">{d['stockout_total']}</div>
+            <div class="lens-metric-count">{d['stockout_pct_total']}% of total map</div>
+            <div style="margin-top:10px; font-size:13px; font-weight:600; color:var(--muted); line-height:1.5;">Risk impact is diluted when inactive bins are included in the denominator.</div>
+          </div>
+        </div>
+      </div>
+      <div class="lens-card" style="border-color:rgba(21,128,61,0.25);">
+        <div class="lens-tag lens-active">Lens 2 — Active Bins Only ({d['active']})</div>
+        <div class="lens-metrics">
+          <div>
+            <div class="lens-metric-label">Fill Rate</div>
+            <div class="lens-metric-value c-green">{d['fill_active']}%</div>
+            <div class="lens-metric-count">{d['stocked_active']} of {d['active']} active bins stocked</div>
+            <div class="fill-bar-track" style="margin-top:8px;"><div class="fill-bar-fill" style="width:{d['fill_active']}%;"></div></div>
+          </div>
+          <div>
+            <div class="lens-metric-label">Stockouts</div>
+            <div class="lens-metric-value c-red">{d['stockout_active']}</div>
+            <div class="lens-metric-count">{d['stockout_pct_active']}% of active map</div>
+            <div style="margin-top:10px; font-size:13px; font-weight:600; color:var(--muted); line-height:1.5;">True operational fill rate — excludes dormant bins not driving demand.</div>
+          </div>
+        </div>
       </div>
     </div>
+  </div>
 
-    <div class="card">
-      <div class="card-title">Stockout Exposure</div>
-      <div class="stat-val c-red">{d['stockout_total']}</div>
-      <div class="stat-label">Empty Bins (Total Map)</div>
-      <div class="stat-sub">
-        <span class="pill pill-red">{d['stockout_active']} in Active Bins</span>
+  <div>
+    <div class="section-header"><span class="section-title">Past Due Risk Exposure</span><div class="section-line"></div></div>
+    <div style="margin-top:12px;" class="row row-2">
+      <div class="card">
+        <div class="card-label">Past Due Bins — Dual-Lens Risk View</div>
+        <div class="pastdue-split">
+          <div class="pd-block">
+            <div class="pd-block-label">vs. Total Map</div>
+            <div class="pd-block-val">{d['pd_pct_total']}%</div>
+            <div class="pd-block-sub">{d['past_due_total']} bins · of {d['total']} total</div>
+          </div>
+          <div class="pd-block">
+            <div class="pd-block-label">vs. Active Only</div>
+            <div class="pd-block-val">{d['pd_pct_active']}%</div>
+            <div class="pd-block-sub">{d['past_due_active']} bins · of {d['active']} active</div>
+          </div>
+        </div>
+        <div style="margin-top:12px; font-size:13px; font-weight:600; color:var(--muted); line-height:1.6; border-top:1px solid var(--border); padding-top:10px;">
+          <span style="color:var(--red);">▲ Active-lens risk is {d['pd_risk_delta']}% higher</span> than total-map view. Reporting against total map significantly understates exposure — active-only lens is the operationally honest metric for leadership.
+        </div>
       </div>
-    </div>
-
-    <div class="card">
-      <div class="card-title">Past Due Risk</div>
-      <div class="stat-val c-yellow">{d['past_due_total']}</div>
-      <div class="stat-label">Past Due Bins (Total Map)</div>
-      <div class="stat-sub">
-        <span class="pill pill-yellow">{d['past_due_active']} Active · {d['pd_pct_active']}%</span>
-      </div>
-    </div>
-
-    <div class="card">
-      <div class="card-title">Contract Coverage</div>
-      <div class="stat-val c-green">{d['on_contract_pct']}%</div>
-      <div class="stat-label">On-Contract Priced</div>
-      <div class="stat-sub">
-        <span class="pill pill-yellow">{d['unpriced']} Unpriced</span>&nbsp;
-        <span class="pill pill-red">{d['off_contract']} Off-Contract</span>
-      </div>
-    </div>
-
-  </div><!-- /grid-4 -->
-
-  <!-- ROW 2: FILL RATE + ACTIVITY -->
-  <div class="grid-2 mt16">
-
-    <!-- FILL RATE CARD -->
-    <div class="card">
-      <div class="card-title">Fill Rate — Dual Lens</div>
-      <div class="grid-2">
-
-        <div>
-          <div class="donut-wrap">
-            <svg class="donut-svg" width="128" height="128" viewBox="0 0 128 128">
-              <circle class="donut-track" cx="64" cy="64" r="52"/>
-              <circle class="donut-fill donut-green" cx="64" cy="64" r="52"
-                stroke-dasharray="{fill_total_arc}"/>
-              <text class="donut-center" x="64" y="64">{d['fill_total']}%</text>
-            </svg>
-            <div class="donut-legend">
-              <div class="lg-row">
-                <span class="lg-label">Filled Bins</span>
-                <span class="lg-val c-green">{int(d['total'].replace(',','')) - d['stockout_total']:,}</span>
+      <div class="card">
+        <div class="card-label">Bin Activity Breakdown</div>
+        <div class="activity-visual" id="activityDots"></div>
+        <div class="activity-legend">
+          <div class="act-item">
+            <div class="act-dot" style="background:var(--green);"></div>
+            <div>
+              <div style="display:flex; align-items:baseline; gap:5px;">
+                <span class="act-num c-green">{d['active']}</span>
+                <span class="act-pct">({d['active_pct']}%)</span>
               </div>
-              <div class="lg-row">
-                <span class="lg-label">Stockout</span>
-                <span class="lg-val c-red">{d['stockout_total']}</span>
-              </div>
+              <div class="act-label">Active — scanned in last 3 yrs</div>
             </div>
           </div>
-          <div class="fill-bar">
-            <div class="fill-bar-label"><span>vs. Total Bin Map</span><span>{d['fill_total']}%</span></div>
-            <div class="fill-bar-track"><div class="fill-bar-fill bar-green" style="width:{d['fill_total']}%;"></div></div>
-          </div>
-        </div>
-
-        <div>
-          <div class="donut-wrap">
-            <svg class="donut-svg" width="128" height="128" viewBox="0 0 128 128">
-              <circle class="donut-track" cx="64" cy="64" r="52"/>
-              <circle class="donut-fill donut-blue" cx="64" cy="64" r="52"
-                stroke-dasharray="{fill_active_arc}"/>
-              <text class="donut-center" x="64" y="64">{d['fill_active']}%</text>
-            </svg>
-            <div class="donut-legend">
-              <div class="lg-row">
-                <span class="lg-label">Filled Active</span>
-                <span class="lg-val c-green">{int(d['active'].replace(',','')) - d['stockout_active']:,}</span>
+          <div class="act-item">
+            <div class="act-dot bg-muted"></div>
+            <div>
+              <div style="display:flex; align-items:baseline; gap:5px;">
+                <span class="act-num" style="color:var(--subtext);">{d['inactive']}</span>
+                <span class="act-pct">({d['inactive_pct']}%)</span>
               </div>
-              <div class="lg-row">
-                <span class="lg-label">Stockout</span>
-                <span class="lg-val c-red">{d['stockout_active']}</span>
-              </div>
+              <div class="act-label">Inactive — zero scans in 3 yrs</div>
             </div>
           </div>
-          <div class="fill-bar">
-            <div class="fill-bar-label"><span>vs. Active Bins Only</span><span>{d['fill_active']}%</span></div>
-            <div class="fill-bar-track"><div class="fill-bar-fill bar-blue" style="width:{d['fill_active']}%;"></div></div>
+        </div>
+        <div style="margin-top:10px; font-size:13px; font-weight:600; color:var(--muted); line-height:1.6; border-top:1px solid var(--border); padding-top:10px;">
+          <span style="color:var(--yellow);">{d['flag_delete']} bins flagged DELETE</span> · {d['flag_review']} flagged for PO/BOM Review — inactive population represents significant footprint recapture opportunity.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <div class="section-header"><span class="section-title">Contract Status</span><div class="section-line"></div></div>
+    <div style="margin-top:12px;" class="row row-3">
+
+      <div class="card">
+        <div class="card-label">Contract Status — Total Bin Map</div>
+        <div class="contract-layout" style="margin-top:10px;">
+          <div class="donut-wrap">
+            <svg width="110" height="110" viewBox="0 0 110 110">
+              <circle cx="55" cy="55" r="42" fill="none" stroke="rgba(0,0,0,0.07)" stroke-width="14"/>
+              <circle cx="55" cy="55" r="42" fill="none" stroke="#15803d" stroke-width="14" stroke-dasharray="{d['arc_priced_total']}" stroke-dashoffset="0" transform="rotate(-90 55 55)" opacity="0.85"/>
+              <circle cx="55" cy="55" r="42" fill="none" stroke="#b91c1c" stroke-width="14" stroke-dasharray="{d['arc_off_total']}" stroke-dashoffset="{d['off_offset_total']}" transform="rotate(-90 55 55)" opacity="0.9"/>
+              <circle cx="55" cy="55" r="42" fill="none" stroke="#b45309" stroke-width="14" stroke-dasharray="{d['arc_unpriced_total']}" stroke-dashoffset="{d['unpriced_offset_total']}" transform="rotate(-90 55 55)" opacity="0.9"/>
+              <circle cx="55" cy="55" r="42" fill="none" stroke="#0e7490" stroke-width="14" stroke-dasharray="{d['arc_growth_total']}" stroke-dashoffset="{d['growth_offset_total']}" transform="rotate(-90 55 55)" opacity="0.9"/>
+            </svg>
+            <div class="donut-center">
+              <div class="donut-center-val">{d['on_contract_pct']}%</div>
+              <div class="donut-center-lbl">On-Contract</div>
+            </div>
+          </div>
+          <div class="contract-legend">
+            <div class="legend-row"><div class="legend-dot bg-green"></div><div class="legend-name">On-Contract · Priced</div><span class="legend-count c-green">{d['on_priced']}</span><span class="legend-pct">{d['on_contract_pct']}%</span></div>
+            <div class="legend-row"><div class="legend-dot bg-yellow"></div><div class="legend-name">On-Contract · Unpriced</div><span class="legend-count c-yellow">{d['unpriced']}</span><span class="legend-pct">{d['unpriced_pct']}%</span></div>
+            <div class="legend-row"><div class="legend-dot bg-red"></div><div class="legend-name">Off-Contract</div><span class="legend-count c-red">{d['off_contract']}</span><span class="legend-pct">{d['off_contract_pct']}%</span></div>
+            <div class="legend-row"><div class="legend-dot bg-teal"></div><div class="legend-name">Growth Agreement</div><span class="legend-count c-teal">{d['growth']}</span><span class="legend-pct">{d['growth_pct']}%</span></div>
           </div>
         </div>
-
-      </div>
-    </div><!-- /fill rate -->
-
-    <!-- BIN ACTIVITY CARD -->
-    <div class="card">
-      <div class="card-title">Bin Activity — 3-Year Scan History</div>
-
-      <div style="display:flex; justify-content:space-between; margin-bottom:12px;">
-        <div>
-          <div class="stat-val c-green">{d['active_pct']}%</div>
-          <div class="stat-label">Active Bins</div>
-          <div class="stat-sub">{d['active']} locations</div>
-        </div>
-        <div style="text-align:right;">
-          <div class="stat-val" style="color:var(--muted);">{d['inactive_pct']}%</div>
-          <div class="stat-label">Inactive Bins</div>
-          <div class="stat-sub">{d['inactive']} locations</div>
-        </div>
       </div>
 
-      <div id="activityDots"></div>
-      <div class="dot-legend">
-        <span><i style="background:#16a34a;"></i> Active (scanned 2023–2026)</span>
-        <span><i style="background:#e5e7eb;"></i> Inactive (0 scans)</span>
-      </div>
-
-      <div class="fill-bar" style="margin-top:14px;">
-        <div class="fill-bar-label"><span>Activity Rate</span><span>{d['active_pct']}%</span></div>
-        <div class="fill-bar-track"><div class="fill-bar-fill bar-green" style="width:{d['active_pct']}%;"></div></div>
-      </div>
-    </div><!-- /activity -->
-
-  </div><!-- /grid-2 -->
-
-  <!-- ROW 3: CONTRACT RISK PANEL -->
-  <div class="card mt16">
-    <div class="card-title">Contract &amp; Risk Summary</div>
-    <div class="grid-2">
-
-      <div>
-        <div class="risk-row">
-          <div class="risk-label">On-Contract Priced</div>
-          <div class="risk-bar-wrap"><div class="risk-bar-bg"><div class="risk-bar-inner bg-green" style="width:{d['on_contract_pct']}%;"></div></div></div>
-          <div class="risk-value c-green">{d['on_contract_pct']}%</div>
-          <div class="risk-count c-muted">{d['on_contract']} bins</div>
-        </div>
-        <div class="risk-row">
-          <div class="risk-label">Off-Contract</div>
-          <div class="risk-bar-wrap"><div class="risk-bar-bg"><div class="risk-bar-inner bg-red" style="width:{d['off_contract_pct']}%;"></div></div></div>
-          <div class="risk-value c-red">{d['off_contract_pct']}%</div>
-          <div class="risk-count c-muted">{d['off_contract']} bins</div>
+      <div class="card">
+        <div class="card-label">Contract Status — Active Bins Only</div>
+        <div class="contract-layout" style="margin-top:10px;">
+          <div class="donut-wrap">
+            <svg width="110" height="110" viewBox="0 0 110 110">
+              <circle cx="55" cy="55" r="42" fill="none" stroke="rgba(0,0,0,0.07)" stroke-width="14"/>
+              <circle cx="55" cy="55" r="42" fill="none" stroke="#15803d" stroke-width="14" stroke-dasharray="{d['arc_priced_active']}" stroke-dashoffset="0" transform="rotate(-90 55 55)" opacity="0.85"/>
+              <circle cx="55" cy="55" r="42" fill="none" stroke="#b91c1c" stroke-width="14" stroke-dasharray="{d['arc_off_active']}" stroke-dashoffset="{d['off_offset_active']}" transform="rotate(-90 55 55)" opacity="0.9"/>
+              <circle cx="55" cy="55" r="42" fill="none" stroke="#b45309" stroke-width="14" stroke-dasharray="{d['arc_unpriced_active']}" stroke-dashoffset="{d['unpriced_offset_active']}" transform="rotate(-90 55 55)" opacity="0.9"/>
+              <circle cx="55" cy="55" r="42" fill="none" stroke="#0e7490" stroke-width="14" stroke-dasharray="{d['arc_growth_active']}" stroke-dashoffset="{d['growth_offset_active']}" transform="rotate(-90 55 55)" opacity="0.9"/>
+            </svg>
+            <div class="donut-center">
+              <div class="donut-center-val">{d['on_contract_active_pct']}%</div>
+              <div class="donut-center-lbl">On-Contract</div>
+            </div>
+          </div>
+          <div class="contract-legend">
+            <div class="legend-row"><div class="legend-dot bg-green"></div><div class="legend-name">On-Contract · Priced</div><span class="legend-count c-green">{d['on_priced_active']}</span><span class="legend-pct">{d['on_contract_active_pct']}%</span></div>
+            <div class="legend-row"><div class="legend-dot bg-yellow"></div><div class="legend-name">On-Contract · Unpriced</div><span class="legend-count c-yellow">{d['unpriced_active']}</span><span class="legend-pct">{d['unpriced_active_pct']}%</span></div>
+            <div class="legend-row"><div class="legend-dot bg-red"></div><div class="legend-name">Off-Contract</div><span class="legend-count c-red">{d['off_contract_active']}</span><span class="legend-pct">{d['off_contract_active_pct']}%</span></div>
+            <div class="legend-row"><div class="legend-dot bg-teal"></div><div class="legend-name">Growth Agreement</div><span class="legend-count c-teal">{d['growth_active']}</span><span class="legend-pct">{d['growth_active_pct']}%</span></div>
+          </div>
         </div>
       </div>
 
-      <div>
-        <div class="risk-row">
-          <div class="risk-label">Unpriced (Total Map)</div>
-          <div class="risk-bar-wrap"><div class="risk-bar-bg"><div class="risk-bar-inner bg-yellow" style="width:{d['unpriced_pct']}%;"></div></div></div>
-          <div class="risk-value c-yellow">{d['unpriced_pct']}%</div>
-          <div class="risk-count c-muted">{d['unpriced']} bins</div>
-        </div>
-        <div class="risk-row">
-          <div class="risk-label">Past Due (Active Lens)</div>
-          <div class="risk-bar-wrap"><div class="risk-bar-bg"><div class="risk-bar-inner bg-red" style="width:{d['pd_pct_active']}%;"></div></div></div>
-          <div class="risk-value c-red">{d['pd_pct_active']}%</div>
-          <div class="risk-count c-muted">{d['past_due_active']} bins</div>
-        </div>
-        <div class="risk-row">
-          <div class="risk-label">Stockout (Active Lens)</div>
-          <div class="risk-bar-wrap"><div class="risk-bar-bg"><div class="risk-bar-inner bg-red" style="width:{d['stockout_pct_active']}%;"></div></div></div>
-          <div class="risk-value c-red">{d['stockout_pct_active']}%</div>
-          <div class="risk-count c-muted">{d['stockout_active']} bins</div>
+      <div class="card">
+        <div class="card-label">Contract Risk Summary</div>
+        <div style="margin-top:12px; display:flex; flex-direction:column; gap:10px;">
+          <div class="risk-row"><div class="risk-label">Off-Contract (Total Map)</div><div class="risk-bar-wrap"><div class="risk-bar-bg"><div class="risk-bar-inner bg-red" style="width:{d['off_contract_pct']}%;"></div></div></div><div class="risk-value c-red">{d['off_contract_pct']}%</div><div class="risk-count c-muted">{d['off_contract']} bins</div></div>
+          <div class="risk-row"><div class="risk-label">Off-Contract (Active Only)</div><div class="risk-bar-wrap"><div class="risk-bar-bg"><div class="risk-bar-inner bg-red" style="width:{d['off_contract_active_pct']}%;"></div></div></div><div class="risk-value c-red">{d['off_contract_active_pct']}%</div><div class="risk-count c-muted">{d['off_contract_active']} bins</div></div>
+          <div class="risk-row"><div class="risk-label">Unpriced (Total Map)</div><div class="risk-bar-wrap"><div class="risk-bar-bg"><div class="risk-bar-inner bg-yellow" style="width:{d['unpriced_pct']}%;"></div></div></div><div class="risk-value c-yellow">{d['unpriced_pct']}%</div><div class="risk-count c-muted">{d['unpriced']} bins</div></div>
+          <div class="risk-row"><div class="risk-label">Unpriced (Active Only)</div><div class="risk-bar-wrap"><div class="risk-bar-bg"><div class="risk-bar-inner bg-yellow" style="width:{d['unpriced_active_pct']}%;"></div></div></div><div class="risk-value c-yellow">{d['unpriced_active_pct']}%</div><div class="risk-count c-muted">{d['unpriced_active']} bins</div></div>
+          <div class="risk-row"><div class="risk-label">Past Due (Active Lens)</div><div class="risk-bar-wrap"><div class="risk-bar-bg"><div class="risk-bar-inner bg-red" style="width:{d['pd_pct_active']}%;"></div></div></div><div class="risk-value c-red">{d['pd_pct_active']}%</div><div class="risk-count c-muted">{d['past_due_active']} bins</div></div>
+          <div class="risk-row"><div class="risk-label">Stockout (Active Lens)</div><div class="risk-bar-wrap"><div class="risk-bar-bg"><div class="risk-bar-inner bg-red" style="width:{d['stockout_pct_active']}%;"></div></div></div><div class="risk-value c-red">{d['stockout_pct_active']}%</div><div class="risk-count c-muted">{d['stockout_active']} bins</div></div>
         </div>
       </div>
 
     </div>
-  </div><!-- /risk panel -->
+  </div>
 
-</div><!-- /page -->
+</div>
 
 <div class="footer">
   <span>Boeing Distribution Services · Program Management · Honeywell Aerospace Account</span>
@@ -581,8 +488,8 @@ def build_html(d):
 if __name__ == "__main__":
     print(f"Reading: {XLSX_PATH}")
     data = load_and_calculate(XLSX_PATH, SHEET_NAME)
-    html  = build_html(data)
-    output_path = os.path.join(os.path.dirname(XLSX_PATH), OUTPUT_FILE)
+    html = build_html(data, SITE_NAME)
+    output_path = os.path.join(OUTPUT_DIR, "index.html")
     with open(output_path, "w", encoding="utf-8") as f:
         f.write(html)
-    print(f"✓ Dashboard generated: {output_path}")
+    print(f"Dashboard generated: {output_path}")
